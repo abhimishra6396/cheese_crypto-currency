@@ -34,8 +34,6 @@ class Cheese:
 
 class ReblochonCheese:
 
-	DIFFICULTY = 4
-
 	def __init__(self):
 		self.content = "Öriginal Cheese"
 		self.seq_num = 0
