@@ -1,6 +1,3 @@
-# TODO: timestamp required?
-# self.timestamp.isoformat()
-
 import hashlib
 import random
 
