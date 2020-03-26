@@ -7,8 +7,6 @@ from threading import Thread, Timer
 import threading
 
 import json
-
-import util
 import pickle
 import os
 import time
@@ -22,6 +20,17 @@ class Member:
 	
 	CHAIN_PATH = str(os.path.expanduser("~")) + "/.cheese_stack/"
 	os.makedirs(CHAIN_PATH, exist_ok=True)
+
+	def myReadLine(self, connection):
+		readval = b""
+		flag = True
+		while flag:
+			byte = connection.recv(1)
+			if byte == b"\n":
+				flag = False
+			else:
+				readval += byte
+		return readval
 
 	def __init__(self, member_id, port=1114):
 		self.id = member_id
@@ -38,7 +47,7 @@ class Member:
 			while True: 
 				Thread(target=self.dumpCheese).start()
 				Thread(target=self.sniffCheeses).start()
-				time.sleep(30)
+				time.sleep(300)
 		Thread(target=loop).start()
 
 	def reloadCheeses(self):
@@ -66,10 +75,10 @@ class Member:
 			port = mem["member_port"]
 			try:
 				connection = create_connection((ip, port))
-				connection.sendall(b"GETCHEESESTACK\r\n")
+				connection.sendall(b"GETCHEESESTACK\n")
 				print("Member ", self.id, " transmitted the request for cheesestack")
 				self.memberList = []
-				response = util.readLine(connection)
+				response = self.myReadLine(connection).decode("utf-8")
 				connection.close()
 				if response == "NONE":
 					print(self.id, " got nothing")
@@ -87,8 +96,8 @@ class Member:
 	def register(self):
 		try:
 			connection = create_connection((TRACKER_IP, TRACKER_PORT))
-			connection.sendall(b'REGISTER\r\n') # TODO: send network ip?
-			connection.sendall(bytes(str(self.port) + '\r\n', 'utf-8')) 
+			connection.sendall(b'REGISTER\n') # TODO: send network ip?
+			connection.sendall(bytes(str(self.port) + '\n', 'utf-8')) 
 			connection.close()
 			self.registered = True
 		except Exception as e:
@@ -97,11 +106,11 @@ class Member:
 	def fetchMembers(self):
 		try:
 			connection = create_connection((TRACKER_IP, TRACKER_PORT))
-			connection.sendall(b"GETMEMBERS\r\n")
+			connection.sendall(b"GETMEMBERS\n")
 			print("Member ", self.id, " transmitted the request for Member List")
 			self.memberList = []
 			while True:
-				l = util.readLine(connection)
+				l = self.myReadLine(connection).decode("utf-8")
 				if l == "200":
 					break
 				else:
@@ -124,50 +133,50 @@ class Member:
 		Thread(target=listenerThread).start()
 
 	def sendTransactionDetails(self, connection):
-		seq_num = util.readLine(connection)
+		seq_num = self.myReadLine(connection).decode("utf-8")
 		seq_num = int(seq_num)
 		print("Member ", self.id, " received the request for Transaction details with sequence number: ", seq_num)
 
 		chsedump = pickle.dumps(self.cheesestack.stack[seq_num].content)
 		connection.sendall(chsedump)
-		connection.sendall(b"\r\n")
+		connection.sendall(b"\n")
 		print("Member ", self.id, " transmitted the transaction details: ", self.cheesestack.stack[seq_num].content)
 
 	def sendCheese(self, connection):
-		seq_num = util.readLine(connection)
+		seq_num = self.myReadLine(connection).decode("utf-8")
 		seq_num = int(seq_num)
 		print("Member ", self.id, " received the request for cheese with sequence number: ", seq_num)
 		if len(self.cheesestack.stack) > seq_num:
 			chsedump = pickle.dumps(self.cheesestack.stack[seq_num])
 			connection.sendall(chsedump)
-			connection.sendall(b"\r\n")
+			connection.sendall(b"\n")
 			print("Member ", self.id, " transmitted the cheese: ", self.cheesestack.stack[seq_num])
 		else:
-			connection.sendall(b"NONE\r\n")
+			connection.sendall(b"NONE\n")
 			print("Member ", self.id, " got invalid Cheese request")
 
 	def getCheese(self, connection):
-		chsedump = util.readLine(connection)
+		chsedump = self.myReadLine(connection).decode("utf-8")
 		chse = pickle.loads(chsedump)
 		print("Member ", self.id, " received the cheese: ", chse)
 		if len(self.cheesestack.stack) != chse.seq_num:
 			print("Member ", self.id, " dropped the cheese")
-			connection.sendall(b"DROP\r\n")
+			connection.sendall(b"DROP\n")
 		else:    
 			status = self.cheesestack.insertCheese(chse)
 			self.updateLongestCheeseStack()
 			if status:
 				print("Member ", self.id, " inserted the received cheese")
-				connection.sendall(b"OK\r\n")
+				connection.sendall(b"OK\n")
 				self.broadcastCheese(chse.seq_num)
 			else:
 				print("Member ", self.id, " got the invalid cheese")
-				connection.sendall(b"INVALID\r\n")
+				connection.sendall(b"INVALID\n")
 
 	def getTransaction(self, connection):
-		txndump = util.readLine(connection)
+		txndump = self.myReadLine(connection).decode("utf-8")
 		txn = pickle.loads(txndump)
-		connection.sendall(b"200\r\n")
+		connection.sendall(b"200\n")
 		print("Member ", self.id, " received the transaction: ", txn)
 
 		self.cheesestack.createCheese(txn)
@@ -176,16 +185,16 @@ class Member:
 	def sendCheeseStack(self, connection):
 		chsestackdump = pickle.dumps(self.cheesestack)
 		connection.sendall(chsestackdump)
-		connection.sendall(b"\r\n")
+		connection.sendall(b"\n")
 		print("Member ", self.id, " did transmit the CheeseStack: ", self.cheesestack)
 
 	def responseToPing(self, connection):
 		print("Member ", self.id, " received the ping request")
-		connection.sendall(b"200\r\n")
+		connection.sendall(b"200\n")
 		print("Member ", self.id, " responsed to ping")
 
 	def handleClient(self, connection):
-		l = util.readLine(connection)
+		l = self.myReadLine(connection).decode("utf-8")
 
 		if l == "PING":
 			self.responseToPing(connection)
@@ -208,7 +217,7 @@ class Member:
 		connection.close()
 
 	def getSniffedCheese(self, connection):
-		response = util.readLine(connection)
+		response = self.myReadLine(connection).decode("utf-8")
 		connection.close()
 		status_sniff = False
 		if response == "NONE":
@@ -234,9 +243,9 @@ class Member:
 			fetchseq = str(len(self.cheesestack.stack))
 			try:
 				connection = create_connection((ip, port))
-				connection.sendall(b'GETCheese\r\n')
+				connection.sendall(b'GETCheese\n')
 				print("Member ", self.id, " sent the cheese request")
-				connection.sendall(bytes(fetchseq + '\r\n', 'utf-8'))
+				connection.sendall(bytes(fetchseq + '\n', 'utf-8'))
 				print("Member ", self.id, " transmitted the cheese request for sequence number: ", fetchseq)
 				if not self.getSniffedCheese(connection):
 					continue
@@ -253,12 +262,12 @@ class Member:
 				port = mem["member_port"]
 				try:
 					connection = create_connection((ip, port))
-					connection.sendall(b'SENDCheese\r\n')
+					connection.sendall(b'SENDCheese\n')
 					print("Member ", self.id, " broadcasted the cheese")
 					connection.sendall(chsedump)
-					connection.sendall(b"\r\n")
+					connection.sendall(b"\n")
 					print("Transmitted Cheese:", self.cheesestack.stack[seq_num])
-					response = util.readLine(connection)
+					response = self.myReadLine(connection).decode("utf-8")
 					print("Member ", self.id, " received the broadcast response: ", response)
 					connection.close()
 					self.registered = True
@@ -277,12 +286,12 @@ class Member:
 			if port!=str(self.port):
 				try:
 					connection = create_connection((ip, port))
-					connection.sendall(b'SENDTrnxn\r\n')
+					connection.sendall(b'SENDTrnxn\n')
 					print("Member ", self.id, " broadcasted the Transaction")
 					connection.sendall(trxndump)
-					connection.sendall(b"\r\n")
+					connection.sendall(b"\n")
 					print("Transmitted transaction:", transaction)
-					response = util.readLine(connection)
+					response = self.myReadLine(connection).decode("utf-8")
 					print("Member ", self.id, " received the broadcast transaction response: ", response)
 					connection.close()
 
@@ -301,11 +310,11 @@ class Member:
 			if port!=str(self.port):
 				try:
 					connection = create_connection((ip, port))
-					connection.sendall(b"GETRXN\r\n")
-					connection.sendall(bytes(str(seq_num) + '\r\n', 'utf-8'))
-					#connection.sendall(b"\r\n")
+					connection.sendall(b"GETRXN\n")
+					connection.sendall(bytes(str(seq_num) + '\n', 'utf-8'))
+					#connection.sendall(b"\n")
 					print("Member ", self.id, " transmitted the request for transaction details")
-					response = util.readLine(connection)
+					response = self.myReadLine(connection).decode("utf-8")
 					connection.close()
 					if response == "NONE":
 						print(self.id, " got nothing")
