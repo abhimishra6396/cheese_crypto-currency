@@ -1,5 +1,6 @@
 addMemberCommand = "REGISTER"
 getMembersCommand = "GETMEMBERS"
+getCheeseStackCommand = "GETCHEESESTACK"
 pingCommand = "PING"
 badCommand = "BAD"
 
