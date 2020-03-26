@@ -29,7 +29,7 @@ class Member:
 		self.cheesestack = self.reloadCheeses() # reloadCheeses from Disk
 		self.longest_valid_cheesestack = self.reloadCheeses()
 
-	def runLoops(self):
+	def activateMember(self):
 		self.isLoop = True
 		def loop():
 			self.register() # register client once
@@ -164,6 +164,12 @@ class Member:
 				connection.sendall(b"NONE\r\n")
 				print("SENT: NONE")
 
+		if l == "GETCHEESESTACK":
+			chsestackdump = pickle.dumps(self.cheesestack)
+			connection.sendall(chsestackdump)
+			connection.sendall(b"\r\n")
+			print("SENT CheeseStack: ", self.cheesestack)
+
 		connection.close()
 		print("connection closed")
 
@@ -216,13 +222,3 @@ class Member:
 					print("broadcast error: ", e)
 
 		Thread(target=broadcasterThread).start()
-
-
-
-if __name__ == "__main__":
-	from random import randint
-	mem = Member(randint(1000, 8999))
-	mem.runLoops()
-	mem.startListening()
-	#mem.cheesestack.createCheese("new cheese 1")
-	#mem.cheesestack.createCheese("new cheese 2")
