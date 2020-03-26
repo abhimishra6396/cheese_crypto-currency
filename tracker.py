@@ -2,8 +2,6 @@ from socket import *
 from threading import Thread
 
 import json
-
-from util import *
 import random
 import time
 
@@ -14,6 +12,17 @@ class Tracker:
 
 	def __init__(self):
 		self.membersList = []
+
+	def myReadLine(self, connection):
+		readval = b""
+		flag = True
+		while flag:
+			byte = connection.recv(1)
+			if byte == b"\n":
+				flag = False
+			else:
+				readval += byte
+		return readval
 
 	def startListning(self):
 		def acceptAll():
@@ -33,8 +42,8 @@ class Tracker:
 						port = mem["member_port"]
 						print("Starting ping member:",ip,port)
 						conn = create_connection((ip,port))
-						conn.sendall(b"PING\r\n")
-						l = readLine(conn)
+						conn.sendall(b"PING\n")
+						l = self.myReadLine(conn).decode("utf-8")
 						if l != "200":
 							print("Pinging the Member:",ip,port," with response: ",l)
 						else:
@@ -50,23 +59,23 @@ class Tracker:
 	def handleClient(self,conn, ip):
 		def handle():
 			
-			l = readLine(conn)
+			l = self.myReadLine(conn).decode("utf-8")
 			#print(l)
-			if l == addMemberCommand:
-				port = readLine(conn)
+			if l == "REGISTER":
+				port = self.myReadLine(conn).decode("utf-8")
 				addr = {}
 				addr["member_ip"]= ip
 				addr["member_port"] = port
 				if addr not in self.membersList:
 					self.membersList.append(addr)
 					print("Successfully adding the member: ",addr)
-				conn.sendall(b"201\r\n")
+				conn.sendall(b"201\n")
 				
-			elif l == getMembersCommand:
-				conn.sendall((json.dumps(self.membersList)+"\r\n").encode('UTF-8'))
-				conn.sendall(b"200\r\n")
+			elif l == "GETMEMBERS":
+				conn.sendall((json.dumps(self.membersList)+"\n").encode('UTF-8'))
+				conn.sendall(b"200\n")
 			else:
-				conn.sendall((badCommand+"\r\n").encode('UTF-8'))
+				conn.sendall(("FAIL"+"\n").encode('UTF-8'))
 			conn.close()
 		Thread(target=handle).start()
 
