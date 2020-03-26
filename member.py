@@ -39,7 +39,7 @@ class Member:
 				time.sleep(30)
 		Thread(target=loop).start()
 	
-	def stopLoops(self):
+	def deactivateMember(self):
 		self.isLoop = False
 
 	def reloadCheeses(self):
