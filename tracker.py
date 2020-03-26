@@ -1,10 +1,10 @@
 from socket import *
 from threading import Thread
-from netutils import *
-import random 
+from util import *
+import random
 import time
 
-tracker_ip = '192.168.1.100'
+tracker_ip = '192.168.0.46'
 tracker_port = 20000
 max_member_sample_size = 3
 
@@ -33,7 +33,7 @@ class Tracker:
 						conn = create_connection((ip,port))
 						conn.sendall(b"PING\r\n")
 						l = readLine(conn)
-						if l != "OK":
+						if l != "200":
 							print("Pinging member:",ip,port," bad response: ",l)
 						else:
 							print("Pinging member:",ip,port," good response: ",l)
@@ -56,14 +56,14 @@ class Tracker:
 				if addr not in self.membersList:
 					self.membersList.append(addr)
 					print("Adding member: ",addr)
-				conn.sendall(b"OK\r\n")
+				conn.sendall(b"201\r\n")
 				
 			elif l == getMembersCommand:
 				sample = [ self.membersList[i] for i in sorted(random.sample(range(len(self.membersList)), 
 						max_member_sample_size if len(self.membersList) > max_member_sample_size else len(self.membersList))) ]
 				for s in sample:
 					conn.sendall((s+"\r\n").encode('UTF-8'))
-				conn.sendall(b"END\r\n")
+				conn.sendall(b"200\r\n")
 			else:
 				conn.sendall((badCommand+"\r\n").encode('UTF-8'))
 			conn.close()
