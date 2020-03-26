@@ -1,12 +1,14 @@
 from socket import *
 from threading import Thread
+
+import json
+
 from util import *
 import random
 import time
 
 tracker_ip = '192.168.0.46'
 tracker_port = 20000
-max_member_sample_size = 3
 
 class Tracker:
 
@@ -27,8 +29,8 @@ class Tracker:
 				print("Pinging all members")
 				for mem in self.membersList:
 					try:
-						ip = mem.split(':')[0]
-						port = int (mem.split(':')[1])
+						ip = mem["member_ip"]
+						port = mem["member_port"]
 						print("Starting ping member:",ip,port)
 						conn = create_connection((ip,port))
 						conn.sendall(b"PING\r\n")
@@ -52,17 +54,16 @@ class Tracker:
 			#print(l)
 			if l == addMemberCommand:
 				port = readLine(conn)
-				addr = ip + ":" + port
+				addr = {}
+				addr["member_ip"]= ip
+				addr["member_port"] = port
 				if addr not in self.membersList:
 					self.membersList.append(addr)
 					print("Successfully adding the member: ",addr)
 				conn.sendall(b"201\r\n")
 				
 			elif l == getMembersCommand:
-				sample = [ self.membersList[i] for i in sorted(random.sample(range(len(self.membersList)), 
-						max_member_sample_size if len(self.membersList) > max_member_sample_size else len(self.membersList))) ]
-				for s in sample:
-					conn.sendall((s+"\r\n").encode('UTF-8'))
+				conn.sendall((json.dumps(self.membersList)+"\r\n").encode('UTF-8'))
 				conn.sendall(b"200\r\n")
 			else:
 				conn.sendall((badCommand+"\r\n").encode('UTF-8'))
