@@ -127,52 +127,83 @@ class Member:
 				Thread(target=self.handleClient, args=(connection,)).start()
 		Thread(target=listenerThread).start()
 
+	def sendCheese(self, connection):
+		seq_num = util.readLine(connection)
+		seq_num = int(seq_num)
+		print("Member ", self.id, " received the request for cheese with sequence number: ", seq_num)
+		if len(self.cheesestack.stack) > seq_num:
+			chsedump = pickle.dumps(self.cheesestack.stack[seq_num])
+			connection.sendall(chsedump)
+			connection.sendall(b"\r\n")
+			print("Member ", self.id, " transmitted the cheese: ", self.cheesestack.stack[seq_num])
+		else:
+			connection.sendall(b"NONE\r\n")
+			print("Member ", self.id, " got invalid Cheese request")
+
+	def getCheese(self, connection):
+		chsedump = util.readLine(connection)
+		chse = pickle.loads(chsedump)
+		print("Member ", self.id, " received the cheese: ", chse)
+		if len(self.cheesestack.stack) != chse.seq_num:
+			print("Member ", self.id, " dropped the cheese")
+			connection.sendall(b"DROP\r\n")
+		else:    
+			status = self.cheesestack.insertCheese(chse)
+			self.updateLongestCheeseStack()
+			if status:
+				print("Member ", self.id, " inserted the received cheese")
+				connection.sendall(b"OK\r\n")
+				self.broadcastCheese(chse.seq_num)
+			else:
+				print("Member ", self.id, " got the invalid cheese")
+				connection.sendall(b"INVALID\r\n")
+
+	def getCheeseStack(self, connection):
+		chsestackdump = pickle.dumps(self.cheesestack)
+		connection.sendall(chsestackdump)
+		connection.sendall(b"\r\n")
+		print("Member ", self.id, " did transmit the CheeseStack: ", self.cheesestack)
+
+	def responseToPing(self, connection):
+		print("Member ", self.id, " received the ping request")
+		connection.sendall(b"200\r\n")
+		print("Member ", self.id, " responsed to ping")
+
 	def handleClient(self, connection):
 		l = util.readLine(connection)
 
 		if l == "PING":
-			print("Member ", self.id, " received the ping request")
-			connection.sendall(b"200\r\n")
-			print("Member ", self.id, " responsed to ping")
+			self.responseToPing(connection)
 		
 		if l == "SENDCheese":
-			chsedump = util.readLine(connection)
-			chse = pickle.loads(chsedump)
-			print("Member ", self.id, " received the cheese: ", chse)
-			if len(self.cheesestack.stack) != chse.seq_num:
-				print("Member ", self.id, " dropped the cheese")
-				connection.sendall(b"DROP\r\n")
-			else:    
-				status = self.cheesestack.insertCheese(chse)
-				self.updateLongestCheeseStack()
-				if status:
-					print("Member ", self.id, " inserted the received cheese")
-					connection.sendall(b"OK\r\n")
-					self.broadcastCheese(chse.seq_num)
-				else:
-					print("Member ", self.id, " got the invalid cheese")
-					connection.sendall(b"INVALID\r\n")
+			self.getCheese(connection)
 		
 		if l == "GETCheese":
-			seq_num = util.readLine(connection)
-			seq_num = int(seq_num)
-			print("Member ", self.id, " received the request for cheese with sequence number: ", seq_num)
-			if len(self.cheesestack.stack) > seq_num:
-				chsedump = pickle.dumps(self.cheesestack.stack[seq_num])
-				connection.sendall(chsedump)
-				connection.sendall(b"\r\n")
-				print("Member ", self.id, " transmitted the cheese: ", self.cheesestack.stack[seq_num])
-			else:
-				connection.sendall(b"NONE\r\n")
-				print("Member ", self.id, " got invalid Cheese request")
+			self.sendCheese(connection)
 
 		if l == "GETCHEESESTACK":
-			chsestackdump = pickle.dumps(self.cheesestack)
-			connection.sendall(chsestackdump)
-			connection.sendall(b"\r\n")
-			print("Member ", self.id, " did transmit the CheeseStack: ", self.cheesestack)
+			self.getCheeseStack(connection)
 
 		connection.close()
+
+	def getSniffedCheese(self, connection):
+		response = util.readLine(connection)
+		connection.close()
+		status_sniff = False
+		if response == "NONE":
+			print("Member ", self.id, " did not receive the cheese that it requested")
+			return status_sniff
+		else:
+			chse = pickle.loads(response)
+			print("Member ", self.id, " received the cheese: ", chse)
+			status = self.cheesestack.insertCheese(chse)
+			self.updateLongestCheeseStack()
+			if status:
+				print("Member ", self.id, " Added a new cheese")
+			else:
+				print("Member ", self.id, " Ignored the cheese")
+			status_sniff = True
+			return status_sniff
 
 	def sniffCheeses(self):
 		self.fetchMembers()    
@@ -186,20 +217,9 @@ class Member:
 				print("Member ", self.id, " sent the cheese request")
 				connection.sendall(bytes(fetchseq + '\r\n', 'utf-8'))
 				print("Member ", self.id, " transmitted the cheese request for sequence number: ", fetchseq)
-				response = util.readLine(connection)
-				connection.close()
-				if response == "NONE":
-					print("Member ", self.id, " did not receive the cheese that it requested")
+				if not self.getSniffedCheese(connection):
 					continue
-				else:
-					chse = pickle.loads(response)
-					print("Member ", self.id, " received the cheese: ", chse)
-					status = self.cheesestack.insertCheese(chse)
-					self.updateLongestCheeseStack()
-					if status:
-						print("Member ", self.id, " Added a new cheese")
-					else:
-						print("Member ", self.id, " Ignored the cheese")
+
 			except Exception as e:
 				print("sniffing error: ", e)
 
