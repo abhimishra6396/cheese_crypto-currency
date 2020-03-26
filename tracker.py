@@ -34,11 +34,11 @@ class Tracker:
 						conn.sendall(b"PING\r\n")
 						l = readLine(conn)
 						if l != "200":
-							print("Pinging member:",ip,port," bad response: ",l)
+							print("Pinging the Member:",ip,port," with response: ",l)
 						else:
-							print("Pinging member:",ip,port," good response: ",l)
+							print("Pinging the Member:",ip,port," with response: ",l)
 					except:
-						print("Pinging member:",ip,port," Member timeout, Deleting member!")
+						print("Pinging the Member:",ip,port," Member timeout, Now deleting the Member!")
 						self.membersList.remove(mem)
 				time.sleep(60)
 
@@ -55,7 +55,7 @@ class Tracker:
 				addr = ip + ":" + port
 				if addr not in self.membersList:
 					self.membersList.append(addr)
-					print("Adding member: ",addr)
+					print("Successfully adding the member: ",addr)
 				conn.sendall(b"201\r\n")
 				
 			elif l == getMembersCommand:
