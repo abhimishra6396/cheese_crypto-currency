@@ -62,6 +62,20 @@ class CheeseStack:
 			last_seq_num = cheese.seq_num
 		return True
 
+	def checkBalance(self, content_received):
+		client = content_received.split('_')[0]
+		amount = int(content_received.split('_')[2])
+		clientBalance = 0
+		for b in self.stack[1:]:
+			#transfer to the client
+			if b.content.split('_')[1] == client:
+				clientBalance = clientBalance + int(b.content.split('_')[2])
+			#transfer from the client
+			if b.content.split('_')[0] == client:
+				clientBalance = clientBalance - int(b.content.split('_')[2])
+
+		return amount <= clientBalance
+
 	def __repr__(self):
 		rp = "{CheeseStack"
 		for b in self.stack:
@@ -70,9 +84,11 @@ class CheeseStack:
 
 if __name__ == "__main__":
 	c = CheeseStack()
-	print(c.createCheese("first cheese stack"))
-	print(c.createCheese("second cheese stack"))
-	print(c.createCheese("third cheese stack"))	
+	print(c.createCheese("A_B_500"))
+	print(c.createCheese("B_C_100"))
+	print(c.createCheese("C_A_101"))
+
+	print(c.checkBalance("A_B_100"))
 
 	print(c)
 	c.dropLastCheese()
