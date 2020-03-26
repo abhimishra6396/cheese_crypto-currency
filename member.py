@@ -6,6 +6,8 @@ from socket import socket, create_connection, gethostname, gethostbyname_ex
 from threading import Thread, Timer
 import threading
 
+import json
+
 import util
 import pickle
 import os
@@ -64,7 +66,8 @@ class Member:
 		new_cheese_stack = self.cheesestack
 		self.fetchMembers()    
 		for mem in self.memberList:
-			ip, port = mem.split(":")
+			ip = mem["member_ip"]
+			port = mem["member_port"]
 			try:
 				connection = create_connection((ip, port))
 				connection.sendall(b"GETCHEESESTACK\r\n")
@@ -106,10 +109,8 @@ class Member:
 				if l == "200":
 					break
 				else:
-					if (l == MY_IP + ':' + str(self.port)): # ignore self
-						continue
-					self.memberList.append(l)
-			print("Member ", self.id, " got the Member List: ", self.memberList)
+					print("Member ", self.id, " got the Member List in JSON: ", l)
+					self.memberList = json.loads(l)
 
 		except Exception as e:
 			print("Error in getting the Members by : ", self.id, " ", e)
@@ -176,7 +177,8 @@ class Member:
 	def sniffCheeses(self):
 		self.fetchMembers()    
 		for mem in self.memberList:
-			ip, port = mem.split(":")
+			ip = mem["member_ip"]
+			port = mem["member_port"]
 			fetchseq = str(len(self.cheesestack.stack))
 			try:
 				connection = create_connection((ip, port))
@@ -206,7 +208,8 @@ class Member:
 			self.fetchMembers()
 			chsedump = pickle.dumps(self.cheesestack.stack[seq_num])
 			for mem in self.memberList:
-				ip, port = mem.split(":")
+				ip = mem["member_ip"]
+				port = mem["member_port"]
 				try:
 					connection = create_connection((ip, port))
 					connection.sendall(b'SENDCheese\r\n')
