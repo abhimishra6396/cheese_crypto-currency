@@ -29,21 +29,17 @@ class Member:
 		self.port = port
 		self.memberList = []
 		self.registered = False
-		self.cheesestack = self.reloadCheeses() # reloadCheeses from Disk
+		self.cheesestack = self.reloadCheeses()
 		self.longest_valid_cheesestack = self.reloadCheeses()
 
 	def activateMember(self):
-		self.isLoop = True
 		def loop():
-			self.register() # register client once
-			while True and self.isLoop: 
-				Thread(target=self.dumpCheese).start() # dumpCheese every 10 seconds
-				Thread(target=self.sniffCheeses).start() # sniff for new blocks every 10 seconds
+			self.register()
+			while True: 
+				Thread(target=self.dumpCheese).start()
+				Thread(target=self.sniffCheeses).start()
 				time.sleep(30)
 		Thread(target=loop).start()
-	
-	def deactivateMember(self):
-		self.isLoop = False
 
 	def reloadCheeses(self):
 		try:
@@ -55,11 +51,11 @@ class Member:
 		pickle.dump(self.cheesestack, open(self.path, "wb"))
 
 	def updateLongestCheeseStack(self):
-		if self.cheesestack.isValid() and len(self.cheesestack) > len(self.longest_valid_cheesestack):
+		if self.cheesestack.isValid() and len(self.cheesestack.stack) > len(self.longest_valid_cheesestack.stack):
 			self.longest_valid_cheesestack = self.cheesestack
 
 		received_cheese_stack = self.fetchCheeseStack()
-		if received_cheese_stack.isValid() and len(received_cheese_stack) > len(self.longest_valid_cheesestack):
+		if received_cheese_stack.isValid() and len(received_cheese_stack.stack) > len(self.longest_valid_cheesestack.stack):
 			self.longest_valid_cheesestack = received_cheese_stack
 
 	def fetchCheeseStack(self):
@@ -80,7 +76,7 @@ class Member:
 					continue
 				else:
 					cs = pickle.loads(response)
-					if len(cs) > len(new_cheese_stack):
+					if len(cs.stack) > len(new_cheese_stack.stack):
 						new_cheese_stack = cs
 
 			except Exception as e:
@@ -171,9 +167,11 @@ class Member:
 	def getTransaction(self, connection):
 		txndump = util.readLine(connection)
 		txn = pickle.loads(txndump)
+		connection.sendall(b"200\r\n")
 		print("Member ", self.id, " received the transaction: ", txn)
 
 		self.cheesestack.createCheese(txn)
+		self.broadcastCheese(len(self.cheesestack.stack)-1)
 
 	def sendCheeseStack(self, connection):
 		chsestackdump = pickle.dumps(self.cheesestack)
@@ -270,12 +268,13 @@ class Member:
 		Thread(target=broadcastThread).start()
 
 	def shareTransactionDetails(self, transaction):
-		def transactionBroadcast():
-			self.fetchMembers()
-			trxndump = pickle.dumps(transaction)
-			for mem in self.memberList:
-				ip = mem["member_ip"]
-				port = mem["member_port"]
+		#def transactionBroadcast():
+		self.fetchMembers()
+		trxndump = pickle.dumps(transaction)
+		for mem in self.memberList:
+			ip = mem["member_ip"]
+			port = mem["member_port"]
+			if port!=str(self.port):
 				try:
 					connection = create_connection((ip, port))
 					connection.sendall(b'SENDTrnxn\r\n')
@@ -290,20 +289,21 @@ class Member:
 				except Exception as e:
 					print("Member ", self.id, " had the broadcast error: ", e)
 
-		Thread(target=transactionBroadcast).start()
+		#Thread(target=transactionBroadcast).start()
 
 	def requestTransactionDetails(self, seq_num):
-		def transactionRequestBroadcast():
-			self.fetchMembers()
-			for mem in self.memberList:
-				ip = mem["member_ip"]
-				port = mem["member_port"]
+		#def transactionRequestBroadcast():
+		self.fetchMembers()
+		trnxn = ""
+		for mem in self.memberList:
+			ip = mem["member_ip"]
+			port = mem["member_port"]
+			if port!=str(self.port):
 				try:
 					connection = create_connection((ip, port))
 					connection.sendall(b"GETRXN\r\n")
-					chsedump = pickle.dumps(seq_num)
-					connection.sendall(chsedump)
-					connection.sendall(b"\r\n")
+					connection.sendall(bytes(str(seq_num) + '\r\n', 'utf-8'))
+					#connection.sendall(b"\r\n")
 					print("Member ", self.id, " transmitted the request for transaction details")
 					response = util.readLine(connection)
 					connection.close()
@@ -317,6 +317,6 @@ class Member:
 				except Exception as e:
 					print("Member ", self.id, " Error in getting Transaction details: ", e)
 
-			return trnxn
+		return trnxn
 
-		Thread(target=transactionRequestBroadcast).start()
+		#Thread(target=transactionRequestBroadcast).start()
