@@ -15,9 +15,9 @@ if __name__ == "__main__":
 		member_list[i].activateMember()
 		member_list[i].startListening()
 	member_list[1].shareTransactionDetails("A_B_500")
-	member_list[1].shareTransactionDetails("B_C_100")
-	member_list[0].shareTransactionDetails("C_A_101")
-	member_list[0].shareTransactionDetails("A_B_500")
+	#member_list[1].shareTransactionDetails("B_C_100")
+	#member_list[0].shareTransactionDetails("C_A_101")
+	#member_list[0].shareTransactionDetails("A_B_500")
 
 	#while True:
 		#if (time.time()-start > 10):
