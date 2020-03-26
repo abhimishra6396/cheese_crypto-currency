@@ -175,7 +175,7 @@ class Member:
 
 		self.cheesestack.createCheese(txn)
 
-	def getCheeseStack(self, connection):
+	def sendCheeseStack(self, connection):
 		chsestackdump = pickle.dumps(self.cheesestack)
 		connection.sendall(chsestackdump)
 		connection.sendall(b"\r\n")
@@ -202,10 +202,10 @@ class Member:
 			self.sendCheese(connection)
 
 		if l == "GETCHEESESTACK":
-			self.getCheeseStack(connection)
+			self.sendCheeseStack(connection)
 
-		if l == "GETCHEESESTACK":
-			self.getCheeseStack(connection)
+		if l == "GETRXN":
+			self.sendTransactionDetails(connection)
 
 		connection.close()
 
