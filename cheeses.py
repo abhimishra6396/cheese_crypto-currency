@@ -32,7 +32,7 @@ class Cheese:
 class ReblochonCheese:
 
 	def __init__(self):
-		self.content = "Öriginal Cheese"
+		self.content = "Öriginal_Cheese_0"
 		self.seq_num = 0
 		self.parent_hash = ""
 
@@ -40,7 +40,7 @@ class ReblochonCheese:
 		return "<cheese " + str(self.seq_num) + " " + self.content + ">"	
 
 if __name__ == "__main__":
-	c = Cheese("test cheese", 123, "011")
+	c = Cheese("X_Y_1000", 123, "011")
 	rc = ReblochonCheese()
 	print(c)
 	print(rc)
