@@ -55,6 +55,35 @@ class Member:
 		if self.cheesestack.isValid() and len(self.cheesestack) > len(self.longest_valid_cheesestack):
 			self.longest_valid_cheesestack = self.cheesestack
 
+		received_cheese_stack = self.fetchCheeseStack()
+		if received_cheese_stack.isValid() and len(received_cheese_stack) > len(self.longest_valid_cheesestack):
+			self.longest_valid_cheesestack = received_cheese_stack
+
+	def fetchCheeseStack(self):
+		new_cheese_stack = self.cheesestack
+		self.fetchMembers()    
+		for mem in self.memberList:
+			ip, port = mem.split(":")
+			try:
+				connection = create_connection((ip, port))
+				connection.sendall(b"GETCHEESESTACK\r\n")
+				print("SENT: GETCHEESESTACK")
+				self.memberList = []
+				response = util.readLine(connection)
+				connection.close()
+				if response == "NONE":
+					print("RECIEVED: NONE")
+					continue
+				else:
+					cs = pickle.loads(response)
+					if len(cs) > len(new_cheese_stack):
+						new_cheese_stack = cs
+
+			except Exception as e:
+				print("GETCHEESESTACK error: ", e)
+
+		return new_cheese_stack
+
 	def register(self):
 		try:
 			connection = create_connection((TRACKER_IP, TRACKER_PORT))
@@ -73,7 +102,7 @@ class Member:
 			self.memberList = []
 			while True:
 				l = util.readLine(connection)
-				if l == "END":
+				if l == "200":
 					break
 				else:
 					if (l == MY_IP + ':' + str(self.port)): # ignore self
@@ -101,7 +130,7 @@ class Member:
 		print("RECIEVED: ", l)
 
 		if l == "PING":
-			connection.sendall(b"OK\r\n")
+			connection.sendall(b"200\r\n")
 			print("SENT: OK")
 		
 		if l == "SENDCheese":
