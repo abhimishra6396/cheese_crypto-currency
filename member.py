@@ -127,6 +127,16 @@ class Member:
 				Thread(target=self.handleClient, args=(connection,)).start()
 		Thread(target=listenerThread).start()
 
+	def sendTransactionDetails(self, connection):
+		seq_num = util.readLine(connection)
+		seq_num = int(seq_num)
+		print("Member ", self.id, " received the request for Transaction details with sequence number: ", seq_num)
+
+		chsedump = pickle.dumps(self.cheesestack.stack[seq_num].content)
+		connection.sendall(chsedump)
+		connection.sendall(b"\r\n")
+		print("Member ", self.id, " transmitted the transaction details: ", self.cheesestack.stack[seq_num].content)
+
 	def sendCheese(self, connection):
 		seq_num = util.readLine(connection)
 		seq_num = int(seq_num)
@@ -158,6 +168,13 @@ class Member:
 				print("Member ", self.id, " got the invalid cheese")
 				connection.sendall(b"INVALID\r\n")
 
+	def getTransaction(self, connection):
+		txndump = util.readLine(connection)
+		txn = pickle.loads(txndump)
+		print("Member ", self.id, " received the transaction: ", txn)
+
+		self.cheesestack.createCheese(txn)
+
 	def getCheeseStack(self, connection):
 		chsestackdump = pickle.dumps(self.cheesestack)
 		connection.sendall(chsestackdump)
@@ -177,9 +194,15 @@ class Member:
 		
 		if l == "SENDCheese":
 			self.getCheese(connection)
+
+		if l == "SENDTrnxn":
+			self.getTransaction(connection)
 		
 		if l == "GETCheese":
 			self.sendCheese(connection)
+
+		if l == "GETCHEESESTACK":
+			self.getCheeseStack(connection)
 
 		if l == "GETCHEESESTACK":
 			self.getCheeseStack(connection)
@@ -255,7 +278,7 @@ class Member:
 				port = mem["member_port"]
 				try:
 					connection = create_connection((ip, port))
-					connection.sendall(b'SENDCheese\r\n')
+					connection.sendall(b'SENDTrnxn\r\n')
 					print("Member ", self.id, " broadcasted the Transaction")
 					connection.sendall(trxndump)
 					connection.sendall(b"\r\n")
@@ -263,7 +286,7 @@ class Member:
 					response = util.readLine(connection)
 					print("Member ", self.id, " received the broadcast transaction response: ", response)
 					connection.close()
-					self.registered = True
+
 				except Exception as e:
 					print("Member ", self.id, " had the broadcast error: ", e)
 
@@ -278,8 +301,10 @@ class Member:
 				try:
 					connection = create_connection((ip, port))
 					connection.sendall(b"GETRXN\r\n")
+					chsedump = pickle.dumps(seq_num)
+					connection.sendall(chsedump)
+					connection.sendall(b"\r\n")
 					print("Member ", self.id, " transmitted the request for transaction details")
-					self.memberList = []
 					response = util.readLine(connection)
 					connection.close()
 					if response == "NONE":
@@ -287,6 +312,7 @@ class Member:
 						continue
 					else:
 						trnxn = pickle.loads(response)
+						break
 
 				except Exception as e:
 					print("Member ", self.id, " Error in getting Transaction details: ", e)
