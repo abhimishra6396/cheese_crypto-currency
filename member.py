@@ -21,7 +21,7 @@ class Member:
 	CHAIN_PATH = str(os.path.expanduser("~")) + "/.cheese_stack/"
 	os.makedirs(CHAIN_PATH, exist_ok=True)
 
-	def __init__(self, port=1114, member_id):
+	def __init__(self, member_id, port=1114):
 		self.id = member_id
 		self.path = Member.CHAIN_PATH + str(port)
 		self.port = port
@@ -122,7 +122,7 @@ class Member:
 		def listenerThread():
 			while True:
 				connection, addr = listenerSocket.accept()
-				print("Handling the connection by Member: ", self.id, " on Address: " addr)
+				print("Handling the connection by Member: ", self.id, " on Address: ", addr)
 				Thread(target=self.handleClient, args=(connection,)).start()
 		Thread(target=listenerThread).start()
 
