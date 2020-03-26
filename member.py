@@ -224,7 +224,7 @@ class Member:
 				print("sniffing error: ", e)
 
 	def broadcastCheese(self, seq_num):
-		def broadcasterThread():
+		def broadcastThread():
 			self.fetchMembers()
 			chsedump = pickle.dumps(self.cheesestack.stack[seq_num])
 			for mem in self.memberList:
@@ -236,7 +236,7 @@ class Member:
 					print("Member ", self.id, " broadcasted the cheese")
 					connection.sendall(chsedump)
 					connection.sendall(b"\r\n")
-					print("SENT Cheese:", self.cheesestack.stack[seq_num])
+					print("Transmitted Cheese:", self.cheesestack.stack[seq_num])
 					response = util.readLine(connection)
 					print("Member ", self.id, " received the broadcast response: ", response)
 					connection.close()
@@ -244,4 +244,53 @@ class Member:
 				except Exception as e:
 					print("Member ", self.id, " had the broadcast error: ", e)
 
-		Thread(target=broadcasterThread).start()
+		Thread(target=broadcastThread).start()
+
+	def shareTransactionDetails(self, transaction):
+		def transactionBroadcast():
+			self.fetchMembers()
+			trxndump = pickle.dumps(transaction)
+			for mem in self.memberList:
+				ip = mem["member_ip"]
+				port = mem["member_port"]
+				try:
+					connection = create_connection((ip, port))
+					connection.sendall(b'SENDCheese\r\n')
+					print("Member ", self.id, " broadcasted the Transaction")
+					connection.sendall(trxndump)
+					connection.sendall(b"\r\n")
+					print("Transmitted transaction:", transaction)
+					response = util.readLine(connection)
+					print("Member ", self.id, " received the broadcast transaction response: ", response)
+					connection.close()
+					self.registered = True
+				except Exception as e:
+					print("Member ", self.id, " had the broadcast error: ", e)
+
+		Thread(target=transactionBroadcast).start()
+
+	def requestTransactionDetails(self, seq_num):
+		def transactionRequestBroadcast():
+			self.fetchMembers()
+			for mem in self.memberList:
+				ip = mem["member_ip"]
+				port = mem["member_port"]
+				try:
+					connection = create_connection((ip, port))
+					connection.sendall(b"GETRXN\r\n")
+					print("Member ", self.id, " transmitted the request for transaction details")
+					self.memberList = []
+					response = util.readLine(connection)
+					connection.close()
+					if response == "NONE":
+						print(self.id, " got nothing")
+						continue
+					else:
+						trnxn = pickle.loads(response)
+
+				except Exception as e:
+					print("Member ", self.id, " Error in getting Transaction details: ", e)
+
+			return trnxn
+
+		Thread(target=transactionRequestBroadcast).start()
