@@ -21,7 +21,8 @@ class Member:
 	CHAIN_PATH = str(os.path.expanduser("~")) + "/.cheese_stack/"
 	os.makedirs(CHAIN_PATH, exist_ok=True)
 
-	def __init__(self, port=1112):
+	def __init__(self, port=1114, member_id):
+		self.id = member_id
 		self.path = Member.CHAIN_PATH + str(port)
 		self.port = port
 		self.memberList = []
@@ -67,12 +68,12 @@ class Member:
 			try:
 				connection = create_connection((ip, port))
 				connection.sendall(b"GETCHEESESTACK\r\n")
-				print("SENT: GETCHEESESTACK")
+				print("Member ", self.id, " transmitted the request for cheesestack")
 				self.memberList = []
 				response = util.readLine(connection)
 				connection.close()
 				if response == "NONE":
-					print("RECIEVED: NONE")
+					print(self.id, " got nothing")
 					continue
 				else:
 					cs = pickle.loads(response)
@@ -80,7 +81,7 @@ class Member:
 						new_cheese_stack = cs
 
 			except Exception as e:
-				print("GETCHEESESTACK error: ", e)
+				print("Member ", self.id, " Error in getting CheeseStack: ", e)
 
 		return new_cheese_stack
 
@@ -92,13 +93,13 @@ class Member:
 			connection.close()
 			self.registered = True
 		except Exception as e:
-			print("cannot register member: ", e)
+			print("Error in registering the Member: ", self.id, " ", e)
 
 	def fetchMembers(self):
 		try:
 			connection = create_connection((TRACKER_IP, TRACKER_PORT))
 			connection.sendall(b"GETMEMBERS\r\n")
-			print("SENT: GETMEMBERS")
+			print("Member ", self.id, " transmitted the request for Member List")
 			self.memberList = []
 			while True:
 				l = util.readLine(connection)
@@ -108,70 +109,69 @@ class Member:
 					if (l == MY_IP + ':' + str(self.port)): # ignore self
 						continue
 					self.memberList.append(l)
-			print("RECIEVED MEMBERS: ", self.memberList)
+			print("Member ", self.id, " got the Member List: ", self.memberList)
 
 		except Exception as e:
-			print("getmembers error: ", e)
+			print("Error in getting the Members by : ", self.id, " ", e)
 
 	def startListening(self):
 		listenerSocket = socket()
 		listenerSocket.bind((MY_IP, self.port))
 		listenerSocket.listen()
-		print("socket is listening", self.port )
+		print("Member ", self.id, " is listening on port: ", self.port )
 		def listenerThread():
 			while True:
 				connection, addr = listenerSocket.accept()
-				print("handle connection", addr)
+				print("Handling the connection by Member: ", self.id, " on Address: " addr)
 				Thread(target=self.handleClient, args=(connection,)).start()
 		Thread(target=listenerThread).start()
 
 	def handleClient(self, connection):
 		l = util.readLine(connection)
-		print("RECIEVED: ", l)
 
 		if l == "PING":
+			print("Member ", self.id, " received the ping request")
 			connection.sendall(b"200\r\n")
-			print("SENT: OK")
+			print("Member ", self.id, " responsed to ping")
 		
 		if l == "SENDCheese":
 			chsedump = util.readLine(connection)
 			chse = pickle.loads(chsedump)
-			print("RECIVED Cheese: ", chse)
+			print("Member ", self.id, " received the cheese: ", chse)
 			if len(self.cheesestack.stack) != chse.seq_num:
-				print("SENT: DROP")
+				print("Member ", self.id, " dropped the cheese")
 				connection.sendall(b"DROP\r\n")
 			else:    
 				status = self.cheesestack.insertCheese(chse)
 				self.updateLongestCheeseStack()
 				if status:
-					print("SENT: OK")
+					print("Member ", self.id, " inserted the received cheese")
 					connection.sendall(b"OK\r\n")
 					self.broadcastCheese(chse.seq_num)
 				else:
-					print("SENT: INVALID")
+					print("Member ", self.id, " got the invalid cheese")
 					connection.sendall(b"INVALID\r\n")
 		
 		if l == "GETCheese":
 			seq_num = util.readLine(connection)
 			seq_num = int(seq_num)
-			print("RECIEVED: ", seq_num)
+			print("Member ", self.id, " received the request for cheese with sequence number: ", seq_num)
 			if len(self.cheesestack.stack) > seq_num:
 				chsedump = pickle.dumps(self.cheesestack.stack[seq_num])
 				connection.sendall(chsedump)
 				connection.sendall(b"\r\n")
-				print("SENT Cheese: ", self.cheesestack.stack[seq_num])
+				print("Member ", self.id, " transmitted the cheese: ", self.cheesestack.stack[seq_num])
 			else:
 				connection.sendall(b"NONE\r\n")
-				print("SENT: NONE")
+				print("Member ", self.id, " got invalid Cheese request")
 
 		if l == "GETCHEESESTACK":
 			chsestackdump = pickle.dumps(self.cheesestack)
 			connection.sendall(chsestackdump)
 			connection.sendall(b"\r\n")
-			print("SENT CheeseStack: ", self.cheesestack)
+			print("Member ", self.id, " did transmit the CheeseStack: ", self.cheesestack)
 
 		connection.close()
-		print("connection closed")
 
 	def sniffCheeses(self):
 		self.fetchMembers()    
@@ -181,23 +181,23 @@ class Member:
 			try:
 				connection = create_connection((ip, port))
 				connection.sendall(b'GETCheese\r\n')
-				print("SENT: GETCheese")
+				print("Member ", self.id, " sent the cheese request")
 				connection.sendall(bytes(fetchseq + '\r\n', 'utf-8'))
-				print("SENT: ", fetchseq)
+				print("Member ", self.id, " transmitted the cheese request for sequence number: ", fetchseq)
 				response = util.readLine(connection)
 				connection.close()
 				if response == "NONE":
-					print("RECIEVED: NONE")
+					print("Member ", self.id, " did not receive the cheese that it requested")
 					continue
 				else:
 					chse = pickle.loads(response)
-					print("RECIEVED Cheese: ", chse)
+					print("Member ", self.id, " received the cheese: ", chse)
 					status = self.cheesestack.insertCheese(chse)
 					self.updateLongestCheeseStack()
 					if status:
-						print("cheese added!")
+						print("Member ", self.id, " Added a new cheese")
 					else:
-						print("cheese ignored!")
+						print("Member ", self.id, " Ignored the cheese")
 			except Exception as e:
 				print("sniffing error: ", e)
 
@@ -210,15 +210,15 @@ class Member:
 				try:
 					connection = create_connection((ip, port))
 					connection.sendall(b'SENDCheese\r\n')
-					print("SENT: SENDCheese")
+					print("Member ", self.id, " broadcasted the cheese")
 					connection.sendall(chsedump)
 					connection.sendall(b"\r\n")
 					print("SENT Cheese:", self.cheesestack.stack[seq_num])
 					response = util.readLine(connection)
-					print("RECIVED: ", response)
+					print("Member ", self.id, " received the broadcast response: ", response)
 					connection.close()
 					self.registered = True
 				except Exception as e:
-					print("broadcast error: ", e)
+					print("Member ", self.id, " had the broadcast error: ", e)
 
 		Thread(target=broadcasterThread).start()
